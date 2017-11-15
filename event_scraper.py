@@ -158,27 +158,23 @@ def football_games(DEBUG = False):
 
 def nba_games(DEBUG = False):
     games = tvmatchen("http://www.tvmatchen.nu/basket/nba/", ["Boston Celtics", "Golden State Warriors", "Cleveland Cavaliers"], DEBUG)
+    for index in xrange(len(games)):
+        games[index][2] = games[index][2] + 86400 #add 1 day since tvmatchen is weird with nba matches with one day behind
     save_to_db(games, "nba", DEBUG)
 
 def cs_games(DEBUG = False):
     games = hltv(DEBUG)
     save_to_db(games, "cs", DEBUG)
 
+def run_all(DEBUG = False):
+    football_games(DEBUG)
+    nba_games(DEBUG)
+    cs_games(DEBUG)
+
+
 if __name__ == "__main__":
     #remove_database("nba")
-    #remove_database("football")
-
-    #games = tvmatchen("http://www.tvmatchen.nu/fotboll/", ["Real Madrid", "Malmö FF", "Paris Saint Germain", "Manchester United", "Chelsea", "Arsenal", "Manchester City"], True)
-    #save_to_db(games, "football", True)
-
-    #games = hltv(True)
-    #save_to_db(games, "cs", True)
-    
-    games = tvmatchen("http://www.tvmatchen.nu/basket/nba/", ["Boston Celtics", "Golden State Warriors", "Cleveland Cavaliers"], True)
-    for game in games:
-        game[2] = game[2] + 86400 #add 1 day since tvmatchen is weird
-
-    save_to_db(games, "nba", True)
-
-    #show_all_database("football")
+    #remove_database("cs")
     #show_all_database("nba")
+    #nba_games(True)
+    run_all(True)

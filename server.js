@@ -1,6 +1,6 @@
 
 var MongoClient = require('mongodb').MongoClient;
-var url = "mongodb://localhost:27017/upcoming";
+var mongo_url = "mongodb://localhost:27017/upcoming";
 
 var express = require('express');
 var cors = require('cors');
@@ -9,37 +9,43 @@ var app = express();
 var fs = require('fs');
 var ical = require('ical-generator');
 
+var domain = "oskarrosen.com";
+var url =  "https://oskarrosen.com:8001";
+
 app.use(cors());
 
 app.get('/cs', function (req, res) {
     getUpcoming("cs", function(result) {
-        console.log("result");
-        console.log(result);
+        console.log("cs");
+    
+        //console.log(result);
         res.send(result);
     });
 })
 
 app.get('/football', function (req, res) {
     getUpcoming("football", function(result) {
-        console.log("result");
-        console.log(result);
+        console.log("football");
+
+       // console.log(result);
         res.send(result);
     });
 })
 
 app.get('/nba', function (req, res) {
     getUpcoming("nba", function(result) {
-        console.log("result");
-        console.log(result);
+        console.log("nba");
+        
+        //console.log(result);
         res.send(result);
     });
 })
 
 app.get('/calendar/football', function (req, res) {
     var cal_football = ical({
-        domain: 'oskarrn93.synology.me', 
+        domain: domain, 
         name: 'Fotball Matches', 
-        url: 'http://oskarrn93.synology.me:8001/calendar/football',
+        url: url+'/calendar/football',
         prodId: '//Oskar Rosen//Football Games//EN',
         ttl: 3600,
         timezone: 'Europe/Berlin'
@@ -73,9 +79,9 @@ app.get('/calendar/football', function (req, res) {
 
 app.get('/calendar/nba', function (req, res) {
     var calendar = ical({
-        domain: 'oskarrn93.synology.me', 
+        domain: domain, 
         name: 'NBA Matches', 
-        url: 'http://oskarrn93.synology.me:8001/calendar/nba',
+        url: url+'/calendar/nba',
         prodId: '//Oskar Rosen//NBA Games//EN',
         ttl: 3600,
         timezone: 'Europe/Berlin'
@@ -107,9 +113,9 @@ app.get('/calendar/nba', function (req, res) {
 
 app.get('/calendar/cs', function (req, res) {
     var cal_cs = ical({
-        domain: 'oskarrn93.synology.me', 
+        domain: domain, 
         name: 'CS Matches', 
-        url: 'http://oskarrn93.synology.me:8001/calendar/cs',
+        url: url+'/calendar/cs',
         prodId: '//Oskar Rosen//CS Matches//EN',
         ttl: 3600,
         timezone: 'Europe/Berlin'
@@ -139,14 +145,17 @@ app.get('/calendar/cs', function (req, res) {
     });
 })
 
-app.listen(8001, function () {
-  console.log('CORS-enabled web server listening on port 8001')
-})
 
+
+
+app.listen(8001, function () {
+    console.log('CORS-enabled web server listening on port 8001')
+})
+  
 
 
 function getUpcoming(SPORT, callback) {
-    MongoClient.connect(url, function(err, db) {
+    MongoClient.connect(mongo_url, function(err, db) {
        if (err)
            throw err;
        db.collection(SPORT).find({}).toArray(function(err, result) {
