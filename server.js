@@ -155,14 +155,26 @@ app.listen(8001, function () {
 
 
 function getUpcoming(SPORT, callback) {
-    MongoClient.connect(mongo_url, function(err, db) {
-       if (err)
-           throw err;
-       db.collection(SPORT).find({}).toArray(function(err, result) {
-           if (err)
-               throw err;
+    MongoClient.connect(mongo_url, function(err, client) 
+    {
+        var db = client.db('upcoming');
+
+        if (err) 
+        {
+            throw err;
+        }
+        
+        db.collection(SPORT).find({}).toArray(function(err, result) 
+        {
+            if (err) 
+            {
+                throw err;
+            }
+               
            callback(result);
-           db.close();
-       });
+         
+        });
+    
+        client.close();
    });
 }
