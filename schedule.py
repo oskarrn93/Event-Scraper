@@ -1,3 +1,4 @@
+!#/usr/bin/python2 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 import event_scraper
