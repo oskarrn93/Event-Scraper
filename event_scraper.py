@@ -1,12 +1,11 @@
+!#/usr/bin/python2
 # -*- coding: utf-8 -*-
 import urllib2
 import time
-import datetime
 import hashlib
-import pymongo
 from pymongo import MongoClient
 from bs4 import BeautifulSoup
-
+#import re
 
 def get_date(soup):
     tmp = soup.parent.parent["data-hash"] + " " + soup.find("time").text.encode('utf8')
@@ -171,10 +170,65 @@ def run_all(DEBUG = False):
     nba_games(DEBUG)
     cs_games(DEBUG)
 
+def nba(DEBUG = True):
+    req = urllib2.Request("http://www.nba.com/celtics/schedule")
+    req.add_header('User-Agent', 'Mozilla/5.0')
+
+    response = urllib2.urlopen(req)
+    the_page = response.read()
+
+    soup = BeautifulSoup(the_page, "html5lib")
+    tmp_games = soup.find_all("li", {"class": "event"})
+
+    games = list();
+
+    for tmp_game in tmp_games:
+        game = {}
+        game['time'] = tmp_game.get("data-eventtime")
+        game['arena'] = tmp_game.get("data-arena")
+        game['info'] = tmp_game.find("div", {"class": "etowah-schedule__event__opponent-logo"}).find("span", {"class": "element-invisible"}).text
+        game['home_team'] = "Boston Celtics"
+        game['away_team'] = tmp_game.find("div", {"class": "etowah-schedule__event__opponent-logo"}).find("img", {"class": "logo"}).get("alt")
+
+        #if(re.match("(?:Game between the )(. *)(?: and the )([\w\s] * )(?: on)", game['info']) is not None):
+           # print "heeej"
+        games.append(game)
+
+    return games
+
+def nba_save_to_db(games, DEBUG = False):
+
+    client = MongoClient('localhost', 27017)
+    db = client['upcoming']
+    collection = db["nba2"]
+
+    for game in games:
+        m = hashlib.md5()
+        #print "".join(str(element) for element in game)
+        m.update(" ".join(str(element) for element in game))
+        post = {"type": "nba2",
+                "date"     : game['time'],
+                "arena"    : game['arena'],
+                "info"     : game['info'],
+                "home_team": game['home_team'],
+                "away_team": game['away_team'],
+                "_id"      : m.hexdigest()
+                }
+
+        try:
+            collection.insert_one(post) #insert_one ?
+        except:
+            if(DEBUG): print "already existing in db " + post['_id']
+
+
+
+
 
 if __name__ == "__main__":
     #remove_database("nba")
     #remove_database("cs")
     #show_all_database("nba")
     #nba_games(True)
-    run_all(True)
+    #run_all(True)
+
+    nba(True)
