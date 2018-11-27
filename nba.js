@@ -1,7 +1,8 @@
 const request = require('request');
 const crypto = require('crypto');
 const mongo_client = require('mongodb').MongoClient;
-const moment = require('moment');
+//const moment = require('moment');
+const moment = require('moment-timezone');
 
 const config = require('./config').nba;
 if(config.debug) console.log(config)
@@ -42,7 +43,7 @@ function parseGames (data) {
          };
 
          //parse the time in east coast time (iso formatted) and get timestamp in seconds
-         tmp.timestamp = moment(game.etm).unix(); 
+         tmp.timestamp = moment.tz(game.etm, "America/New_York").unix(); 
 
          //if the game has already been played (keep 7 days backwards)
          if(tmp.timestamp < (date_now.subtract(7, 'days').unix()))
