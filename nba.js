@@ -1,94 +1,113 @@
 const request = require('request');
 const crypto = require('crypto');
 const mongo_client = require('mongodb').MongoClient;
-const mongo_url = "mongodb://localhost:27017/";
-const url = 'http://data.nba.com/data/10s/v2015/json/mobile_teams/nba/2017/league/00_full_schedule.json';
+const moment = require('moment');
 
-const teams_to_search_for = ["Celtics", "Cavaliers", "Warriors"];
+const config = require('./config').nba;
+if(config.debug) console.log(config)
 
-request(url, function (error, response, body) {
-    const parsed_body = JSON.parse(body);
-    const list_of_nba_games = [];
-    const date_now = Math.floor(Date.now() / 1000) + 86400; //in seconds, 86400 is equal to one day, so I set time now to be tomorrow to allow games that are earlier today to show
+try {
+   getRegularSeason();
+}
+catch(error)
+{
+   console.error(error);
+   process.exit(1);
+}
 
-    var tmp_nba_game = null;
-    var tmp_date = null;
-    var hash = null;
+//#######################################3
 
-    parsed_body.lscd.forEach(function (months) {
-        months.mscd.g.forEach(function (game) {
-            tmp_nba_game = {};
+function getRegularSeason() {
+   request(config.url, (error, response, body) => {
+      if(error) throw error;
 
-            tmp_date = game.etm + "-05:00";
-            tmp_nba_game.timestamp = Date.parse(tmp_date);
+      const parsed = JSON.parse(body);
+      parseGames(parsed);
+   });
+}
 
-            //if the teams that are playing are not one of the teams we search for
-            if(teams_to_search_for.indexOf(game.v.tn) == -1 && teams_to_search_for.indexOf(game.h.tn) == -1) {
-                return;
-            }
+function parseGames (data) {
+   const list_of_games = [];
+   const date_now = moment();
 
-            //if game is over, dont add to database
-            if (date_now > tmp_nba_game.timestamp) {
-                return;
-            }
+   if(config.debug) console.log("Date now:", date_now);
 
-            tmp_nba_game.away_team = game.v.tc + " " + game.v.tn; //e.g. Boston Celtics
-            tmp_nba_game.home_team = game.h.tc + " " + game.h.tn;
-            tmp_nba_game.location = game.an + ", " + game.ac + ", " + game.as; //e.g. Capital One Arena, Washington, DC
+   data.lscd.forEach((months) => {
+      months.mscd.g.forEach((game) => {
+         const tmp = {
+            timestamp: null,
+            home: null,
+            away: null,
+            location: null
+         };
 
-            //create a unique id for storing in mongodb
-            hash = crypto.createHash('sha256');
-            hash.update(tmp_nba_game.timestamp.toString());
-            hash.update(tmp_nba_game.away_team);
-            hash.update(tmp_nba_game.home_team);
-            hash.update(tmp_nba_game.location);
+         //parse the time in east coast time (iso formatted) and get timestamp in seconds
+         tmp.timestamp = moment(game.etm).unix(); 
 
-            tmp_nba_game._id = hash.digest('hex');
-
-            //add game to the list of games
-            list_of_nba_games.push(tmp_nba_game);
-        });
-    });
-
-    save_to_mongo_db(list_of_nba_games, function (err, response) {
-        if (err) {
-            console.log(err);
+         //if the game has already been played (keep 7 days backwards)
+         if(tmp.timestamp < (date_now.subtract(7, 'days').unix()))
+         {
+            if(config.debug) console.log("Game is older than 7 days, skip");
             return;
-        }
+         }
 
-        console.log(response);
-    });
-});
+         //if the teams that are playing are not one of the teams we are looking for
+         if(config.teams.indexOf(game.v.tn) === -1 && config.teams.indexOf(game.h.tn) === -1) 
+         {
+            return;
+         }
 
+         tmp.home = game.h.tc + " " + game.h.tn; //e.g. Boston Celtics
+         tmp.away = game.v.tc + " " + game.v.tn;
+         tmp.location = game.an + ", " + game.ac + ", " + game.as; //e.g. Capital One Arena, Washington, DC
+
+         //create a unique id for storing in mongodb
+         const hash = crypto.createHash("sha256");
+
+         //loop through all the values of the object to use for generating a unique id
+         Object.values(tmp).forEach((value) => {
+            //if the type is not a string, try to convert it to a string?
+            if(typeof value !== "string") {
+               //value = value.toString();
+               value = "" + value;
+            }
+            
+            hash.update(value);
+         });
+
+         tmp._id = hash.digest("hex"); //get the hash as a hexstring to use as unique id in mongodb
+         list_of_games.push(tmp);
+      });
+   });
+
+   if(config.debug) console.log(list_of_games);
+
+   save_to_mongo_db(list_of_games);
+}
 
 /**
- * @param {*} list_of_nba_games List of documents to store in MongoDB 
- * @param {*} callback Callback function
+ * @param {object[]} list_of_games List of documents to store in MongoDB 
+ * @param {function} callback Callback function
  */
-function save_to_mongo_db(list_of_nba_games, callback) {
-    mongo_client.connect(mongo_url, function (err, client) {
-        if (err) {
-            throw err;
-        }
+function save_to_mongo_db(data) {
+   mongo_client.connect(config.mongo.url, function (error, client) {
+      if (error) throw error;
+      
 
-        const db = client.db('upcoming');
+      const db = client.db(config.mongo.database);
 
-        db.collection("nba_tmp").remove({}, function (err, number_of_removed_documents) {
-            if (err) {
-                throw err;
-            }
+      //delete all data before adding the new data
+      db.collection(config.mongo.collection).remove({}, function (error, res) {
+         if (error) throw error;
+         
+         if(config.debug) console.log("Number of removed documents from collection: " + res);
 
-            console.log("Number of removed documents from collection: " + number_of_removed_documents);
-        });
+         db.collection(config.mongo.collection).insertMany(data, function (error, res) {
+            if (error) throw error;
 
-        db.collection("nba_tmp").insertMany(list_of_nba_games, function (err, res) {
-            if (err) {
-                throw err;
-            }
-
-            callback(res);
-        });
-
-        client.close();
-    });
+            client.close();
+            if(config.debug) console.log("Number of added documents to collection: " + res);
+         });
+      }); 
+   });
 }
