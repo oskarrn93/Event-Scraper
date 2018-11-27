@@ -29,10 +29,19 @@ app.get("/football", function (req, res) {
     });
 })
 
-app.get("/nba", function (req, res) {
-    getNBAGames(function (result) {
-        res.send(result);
-    });
+app.get("/debug/nba", function (req, res) {
+
+   try {
+      getNBAGames(function (result) {
+         res.send(result);
+     });
+   }
+   catch(error)
+   {
+      res.status(500)
+      res.send(error);
+   }
+   
 })
 
 app.get("/calendar/football", function (req, res) {
@@ -152,16 +161,16 @@ app.listen(8001, function () {
 
 
 function getUpcoming(SPORT, callback) {
-   mongo_client.connect(mongo_url, function (err, client) {
+   mongo_client.connect(mongo_url, function (error, client) {
         var db = client.db("upcoming");
 
-        if (err) {
-            throw err;
+        if (error) {
+            throw error;
         }
 
-        db.collection(SPORT).find({}).toArray(function (err, result) {
-            if (err) {
-                throw err;
+        db.collection(SPORT).find({}).toArray(function (error, result) {
+            if (error) {
+                throw error;
             }
 
             callback(result);
@@ -174,12 +183,12 @@ function getUpcoming(SPORT, callback) {
 
 function getNBAGames(callback) {
    mongo_client.connect(mongo_url, function (error, client) {
-      if (error) throw err;
+      if (error) throw error;
 
       const db = client.db("events");
       
       db.collection("nba").find({}).toArray(function (error, result) {
-         if (error) throw err;
+         if (error) throw error;
          client.close();
          callback(result);
       });        
