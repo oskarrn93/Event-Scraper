@@ -1,7 +1,7 @@
 const mongo_client = require("mongodb").MongoClient;
 const express = require("express");
 const cors = require("cors");
-const moment = require("moment");
+const moment = require("moment-timezone");
 const ical = require("ical-generator");
 
 const app = express();
@@ -11,7 +11,7 @@ const url = "https://oskarrosen.com:8001";
 
 app.use(cors());
 
-app.get("/cs", function (req, res) {
+/*app.get("/cs", function (req, res) {
     getUpcoming("cs", function (result) {
         console.log("cs");
 
@@ -27,9 +27,9 @@ app.get("/football", function (req, res) {
         // console.log(result);
         res.send(result);
     });
-})
+})*/
 
-app.get("/debug/nba", function (req, res) {
+/*app.get("/debug/nba", function (req, res) {
 
    try {
       getNBAGames(function (result) {
@@ -42,9 +42,9 @@ app.get("/debug/nba", function (req, res) {
       res.send(error);
    }
    
-})
+})*/
 
-app.get("/calendar/football", function (req, res) {
+/*app.get("/calendar/football", function (req, res) {
     var cal_football = ical({
         domain: domain,
         name: "Fotball Matches",
@@ -79,44 +79,50 @@ app.get("/calendar/football", function (req, res) {
         res.send(cal_football.toString().replace(/(?:\r\n)/g, "\n"));
         // res.send(cal_football.toString()); //.replace(/(?:\r\n)/g, "\n")
     });
-})
+})*/
 
-app.get("/calendar/nba", function (req, res) {
+app.get("/nba", function (req, res) {
     var calendar = ical({
         domain: domain,
-        name: "NBA Games",
-        url: url + "/calendar/nba",
-        prodId: "//Oskar Rosen//NBA Games//EN",
+        name: "NBA",
+        url: url + "/nba",
+        prodId: "//Oskar Rosen//NBA//EN",
         ttl: 3600,
-        timezone: "Europe/Berlin"
+        timezone: "Europe/London" //we use utc time
     });
 
     getNBAGames(function (games) {
-        for (var a = 0; a < games.length; a++) {
+         for (var a = 0; a < games.length; a++) {
             const game = games[a];
-            console.log(game)
+            //console.log(game)
             
-            const start = moment.unix(game.timestamp)
-
-            const description = game.away + " - " + game.home;
+            const start = moment.unix(game.timestamp).tz("Europe/London"); //we use utc time
+            const summary = game.away + " - " + game.home;
 
             calendar.createEvent({
-                start: start.toDate(),
-                end: start.add(3, "hours").toDate(), 
-                summary: description,
-                description: description,
-                location: game.location,
-                url: "http://stats.nba.com/schedule/",
-                uid: "nba-game-" + game._id
+               start: start.toDate(),
+               end: start.add(1, "hours").toDate(), 
+               summary: summary,
+               //description: description,
+               location: game.location,
+               url: "http://stats.nba.com/schedule/",
+               uid: "nba-game-" + game._id
+            }).createAlarm({
+               type: 'audio',
+               trigger: 900, // 15min
             });
-        }
-        res.setHeader("Content-type", "application/octet-stream");
-        res.setHeader("Content-disposition", "attachment; filename=nba.ics");
-        res.send(calendar.toString().replace(/(?:\r\n)/g, "\n"));
+         }
+
+         //replace \r\n with \n
+         let output = calendar.toString().replace(/(?:\r\n)/g, "\n");
+
+         res.setHeader("Content-type", "application/octet-stream");
+         res.setHeader("Content-disposition", "attachment; filename=nba.ics");
+         res.send(output);
     });
 })
 
-app.get("/calendar/cs", function (req, res) {
+/*app.get("/calendar/cs", function (req, res) {
     var cal_cs = ical({
         domain: domain,
         name: "CS Matches",
@@ -149,7 +155,7 @@ app.get("/calendar/cs", function (req, res) {
         res.setHeader("Content-disposition", "attachment; filename=cs.ics");
         res.send(cal_cs.toString()); //replace(/(?:\r\n)/g, "\n")
     });
-})
+})*/
 
 
 
@@ -160,7 +166,7 @@ app.listen(8001, function () {
 
 
 
-function getUpcoming(SPORT, callback) {
+/*function getUpcoming(SPORT, callback) {
    mongo_client.connect(mongo_url, function (error, client) {
         var db = client.db("upcoming");
 
@@ -178,7 +184,7 @@ function getUpcoming(SPORT, callback) {
 
         client.close();
     });
-}
+}*/
 
 
 function getNBAGames(callback) {
@@ -189,8 +195,9 @@ function getNBAGames(callback) {
       
       db.collection("nba").find({}).toArray(function (error, result) {
          if (error) throw error;
-         client.close();
+        
          callback(result);
+         client.close();
       });        
    });
 }
