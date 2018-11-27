@@ -97,16 +97,16 @@ function save_to_mongo_db(data) {
       const db = client.db(config.mongo.database);
 
       //delete all data before adding the new data
-      db.collection(config.mongo.collection).remove({}, function (error, res) {
+      db.collection(config.mongo.collection).deleteMany({}, function (error, res) {
          if (error) throw error;
          
-         if(config.debug) console.log("Number of removed documents from collection: " + res);
+         if(config.debug) console.log("Number of removed documents from collection:", res.result.n);
 
          db.collection(config.mongo.collection).insertMany(data, function (error, res) {
             if (error) throw error;
 
             client.close();
-            if(config.debug) console.log("Number of added documents to collection: " + res);
+            if(config.debug) console.log("Number of added documents to collection:", res.insertedCount);
          });
       }); 
    });
