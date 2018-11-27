@@ -1,0 +1,27 @@
+{
+  "name": "event-scraper",
+  "version": "1.0.0",
+  "description": "Scraper NBA, Football and CS games and a server to serve .ical subscriptions",
+  "main": "nba.js",
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "mongodb": "^3.1.10",
+    "request": "^2.88.0",
+    "moment": "^2.22.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oskarrn93/Event-Scraper.git"
+  },
+  "author": "Oskar Rosen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/oskarrn93/Event-Scraper/issues"
+  },
+  "homepage": "https://github.com/oskarrn93/Event-Scraper#readme"
+}
