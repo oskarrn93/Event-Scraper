@@ -1,6 +1,9 @@
 
 
 const nba = {};
+
+nba.debug = true;
+
 nba.teams = ["Celtics", "Lakers", "Warriors"];
 nba.url = "http://data.nba.com/data/10s/v2015/json/mobile_teams/nba/2018/league/00_full_schedule.json";
 
