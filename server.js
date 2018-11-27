@@ -83,10 +83,9 @@ app.get("/calendar/nba", function (req, res) {
     });
 
     getNBAGames(function (games) {
-
-
         for (var a = 0; a < games.length; a++) {
             const game = games[a];
+            console.log(game)
             
             const start = moment.unix(game.timestamp)
 
@@ -174,22 +173,15 @@ function getUpcoming(SPORT, callback) {
 
 
 function getNBAGames(callback) {
-   mongo_client.connect(mongo_url, function (err, client) {
-        const db = client.db("upcoming");
+   mongo_client.connect(mongo_url, function (error, client) {
+      if (error) throw err;
 
-        if (err) {
-            throw err;
-        }
-
-        db.collection("nba_tmp").find({}).toArray(function (err, result) {
-            if (err) {
-                throw err;
-            }
-
-            callback(result);
-            client.close();
-        });
-
-        
-    });
+      const db = client.db("events");
+      
+      db.collection("nba").find({}).toArray(function (error, result) {
+         if (error) throw err;
+         client.close();
+         callback(result);
+      });        
+   });
 }
