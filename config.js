@@ -12,11 +12,17 @@ nba.mongo.url = "mongodb://localhost:27017/";
 nba.mongo.database = "events";
 nba.mongo.collection = "nba";
 
-const hltv = {};
-hltv.test = "hltv"
+const cs = {};
+cs.debug = true;
+cs.url = "hltv"
+cs.teams = ["fnatic", "nip", "faze", "g2"];
 
+cs.mongo = {}
+cs.mongo.url = "mongodb://localhost:27017/";
+cs.mongo.database = "events";
+cs.mongo.collection = "cs";
 
 module.exports = {
    nba: nba,
-   hltv: hltv
+   cs: cs
 };
