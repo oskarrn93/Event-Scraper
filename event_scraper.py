@@ -49,7 +49,7 @@ def parseTvmatchen(html, TEAMS_TO_SEARCH_FOR, DEBUG = False):
          try:       
             html_details = html_game.find("div", {"class" : "details"})
 
-            html_teams = html_details.find("h3") #save this one for later since if we match we want the link to the game on the website
+            html_teams = html_details.find("h3") #save this one for later since if we match we want the url to the game on the website
             teams = html_teams.text.encode("utf-8") #encode as utf-8 to match åäö characters
 
             #we search in lowercase if the teams we are searching are playing, if not then ignore
@@ -70,9 +70,9 @@ def parseTvmatchen(html, TEAMS_TO_SEARCH_FOR, DEBUG = False):
                channels = ", ".join([str(x) for x in channels]) #convert array to string e.g. "channel1, channel2"
 
                #get the url to the game
-               link = html_teams.find("a")
-               link = link["href"]
-               link = "https://www.tvmatchen.nu"+link
+               url = html_teams.find("a")
+               url = url["href"]
+               url = "https://www.tvmatchen.nu"+url
 
                #get the timestamp from the date and time
                timestamp = int(time.mktime(time.strptime(str(date_day+date_time), "%Y-%m-%d%H:%M")))
@@ -84,7 +84,7 @@ def parseTvmatchen(html, TEAMS_TO_SEARCH_FOR, DEBUG = False):
                   print("date_day", date_day)
                   print("timestamp", timestamp)
                   print("channels", channels)
-                  print("link", link)
+                  print("url", url)
                   print("")
 
                #create a dict of the game with all the values
@@ -93,7 +93,7 @@ def parseTvmatchen(html, TEAMS_TO_SEARCH_FOR, DEBUG = False):
                   "away": away,
                   "timestamp": timestamp,
                   "channels": channels,
-                  "link": link
+                  "url": url
                }
 
                games.append(game)    
