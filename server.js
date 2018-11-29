@@ -101,7 +101,7 @@ app.get("/nba", function (req, res) {
 
             calendar.createEvent({
                start: start.toDate(),
-               end: start.add(1, "hours").toDate(), 
+               end: start.add(2, "hours").toDate(), 
                summary: summary,
                //description: description,
                location: game.location,
@@ -121,6 +121,51 @@ app.get("/nba", function (req, res) {
          res.send(output);
     });
 })
+
+
+app.get("/football", function (req, res) {
+   var calendar = ical({
+       domain: domain,
+       name: "Football",
+       url: url + "/football",
+       prodId: "//Oskar Rosen//Football//EN",
+       ttl: 3600,
+       timezone: "Europe/London" //we use utc time
+   });
+
+   getFootballGames(function (games) {
+        for (var a = 0; a < games.length; a++) {
+           const game = games[a];
+           //console.log(game)
+           
+           const start = moment.unix(game.timestamp).tz("Europe/London"); //we use utc time
+           const summary = game.home + " - " + game.away;
+           
+           //const description = game.url + "\n\n" + "Channels:\n" + game.channels
+
+           calendar.createEvent({
+              start: start.toDate(),
+              end: start.add(2, "hours").toDate(), 
+              summary: summary,
+              description: game.channels,
+              location: game.location,
+              url: game.url,
+              uid: "football-game-" + game._id
+           }).createAlarm({
+              type: 'audio',
+              trigger: 900, // 15min
+           });
+        }
+
+        //replace \r\n with \n
+        let output = calendar.toString().replace(/(?:\r\n)/g, "\n");
+
+        res.setHeader("Content-type", "application/octet-stream");
+        res.setHeader("Content-disposition", "attachment; filename=football.ics");
+        res.send(output);
+   });
+})
+
 
 /*app.get("/calendar/cs", function (req, res) {
     var cal_cs = ical({
@@ -194,6 +239,22 @@ function getNBAGames(callback) {
       const db = client.db("events");
       
       db.collection("nba").find({}).toArray(function (error, result) {
+         if (error) throw error;
+        
+         callback(result);
+         client.close();
+      });        
+   });
+}
+
+
+function getFootballGames(callback) {
+   mongo_client.connect(mongo_url, function (error, client) {
+      if (error) throw error;
+
+      const db = client.db("events");
+      
+      db.collection("football").find({}).toArray(function (error, result) {
          if (error) throw error;
         
          callback(result);
