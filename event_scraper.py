@@ -1,141 +1,111 @@
-!#/usr/bin/python2
+#/usr/bin/python3
 # -*- coding: utf-8 -*-
-import urllib2
+import urllib.request
 import time
 import hashlib
 from pymongo import MongoClient
 from bs4 import BeautifulSoup
+import traceback
 #import re
 
-def get_date(soup):
-    tmp = soup.parent.parent["data-hash"] + " " + soup.find("time").text.encode('utf8')
-    return time.mktime(time.strptime(tmp, "%Y-%m-%d %H:%M"))
+#request the page and read it
+def getTvmatchen(url, DEBUG = False):
+   req = urllib.request.Request(
+      url, 
+      data=None, 
+      headers={
+         "User-Agent": "Mozilla/5.0"
+      }
+   )
+   get = urllib.request.urlopen(req)
+   html = get.read()
+   return html
 
-def get_channels(soup):
-    channels = []
-    tmp_channels = soup.find("div", {"class" : "channels"}).find_all("a", {"class" : "channel"})
-    for channel in tmp_channels:
-        channels.append(channel["title"].encode('utf8'))
-    return channels
+#for testing so we don't get banned for dosing the site
+def testTvmatchenData(DEBUG = False):
+   f = open("tvmatchen.txt","r+")
+   html = f.read()
+   return html
 
-def hltv(DEBUG = False):
-    #DEBUG = True
-    req = urllib2.Request("http://www.hltv.org/matches")
-    req.add_header('User-Agent', 'Mozilla/5.0')
+#parse the html on the website
+def parseTvmatchen(html, TEAMS_TO_SEARCH_FOR, DEBUG = False):
+   soup = BeautifulSoup(html, "html5lib")
+   games = []
 
-    response = urllib2.urlopen(req)
-    the_page = response.read()
-    soup = BeautifulSoup(the_page, "html5lib")
+   """
+   the dom elements are constructed like this on the website:
 
-    #TEAM_TO_SEARCH_FOR = "fnatic".lower()
-    TEAMS_TO_SEARCH_FOR = ["fnatic", "NiP", "FaZe"]
+   day
+      games
+         game
+            details
+         ...
+   """
+   for html_date in soup.findAll("li", {"class" : "day"}):
+      date_day = html_date["data-hash"] #get the day, e.g  2018-12-24
 
-    soup.find_all("a", {"class" : "upcoming-match"})
-    upcoming_games_team = soup.find_all("div", {"class" : "team"})
+      for html_game in html_date.findAll("li", {"class" : "match"}):
+         #if anything fails we just continue to the next element in the array
+         try:       
+            html_details = html_game.find("div", {"class" : "details"})
 
-    games = []
+            html_teams = html_details.find("h3") #save this one for later since if we match we want the link to the game on the website
+            teams = html_teams.text.encode("utf-8") #encode as utf-8 to match åäö characters
 
-    for upcoming_game in upcoming_games_team:
-        #if TEAM_TO_SEARCH_FOR in (tmp_game.lower() for tmp_game in upcoming_game):
-        if any(x in upcoming_game.text for x in TEAMS_TO_SEARCH_FOR ):
-            #reset variable
-            game = []
-            #print upcoming_game
-            #game.append(TEAM_TO_SEARCH_FOR)
-            #print upcoming_game.parent.parent.parent.find_all("div", {"class" : "team"})
-            for tmp_other_team in upcoming_game.parent.parent.parent.find_all("div", {"class" : "team"}):
-                #print tmp_other_team.text
-                #if TEAM_TO_SEARCH_FOR not in str(tmp_other_team).lower():
-                if any(x in tmp_other_team.text for x in TEAMS_TO_SEARCH_FOR ):
-                    #print tmp_other_team.text
-                    game.append(tmp_other_team.text)
-                else:
-                    game.append(tmp_other_team.text)
+            #we search in lowercase if the teams we are searching are playing, if not then ignore
+            if any(x in teams.lower() for x in TEAMS_TO_SEARCH_FOR):
+               [home, away] = teams.split(b"\xc3\xa2\xe2\x82\xac\xe2\x80\x9c") #split on " - " in unicode ascii
+               home = home.decode("utf-8").strip() #decode the name of the home team and strip whitespace
+               away = away.decode("utf-8").strip() #decode the name of the away team and strip whitespace
 
-            timestamp = upcoming_game.parent.parent.parent.find("div", {"class" : "time"})["data-unix"]
-            #game.append(datetime.datetime.fromtimestamp(int(timestamp)/1000).strftime('%Y-%m-%d %H:%M:%S'))
-            game.append(long(timestamp)/1000)
-            game.append("https://www.hltv.org" + upcoming_game.parent.parent.parent.parent.parent.parent["href"])
+               date_time = html_game.find("time").text #the time of the game, e.g. 21:00
 
-            games.append(game)
-    return games
+               #get the channels the game is broadcast on
+               for html_channels in html_details.find_all("div", {"class" : "channels"}):
+                  channels = html_channels.find_all("a", {"class" : "channel"})
+                  channels = [x["title"] for x in channels]
 
-def tvmatchen(url, TEAMS_TO_SEARCH_FOR, DEBUG = False):
-    #DEBUG = False
-    #req = urllib2.Request("http://www.tvmatchen.nu/fotboll/")
-    req = urllib2.Request(url)
-    req.add_header('User-Agent', 'Mozilla/5.0')
+               channels = ", ".join([str(x) for x in channels]) #convert array to string e.g. "channel1, channel2"
 
-    response = urllib2.urlopen(req)
-    the_page = response.read()
-    soup = BeautifulSoup(the_page, "html5lib")
+               #get the url to the game
+               link = html_teams.find("a")
+               link = link["href"]
+               link = "https://www.tvmatchen.nu"+link
 
-    #TEAMS_TO_SEARCH_FOR = ["Real Madrid", "Malmö FF", "Paris Saint Germain", "Manchester United", "Chelsea", "Arsenal", "Manchester City"]
+               #get the timestamp from the date and time
+               timestamp = int(time.mktime(time.strptime(str(date_day+date_time), "%Y-%m-%d%H:%M")))
 
-    #To select all the span tags
-    soup.find_all("ul", {"id" : "matches"})
+               if(DEBUG):
+                  print("home", home)
+                  print("away", away)
+                  print("date_time", date_time)
+                  print("date_day", date_day)
+                  print("timestamp", timestamp)
+                  print("channels", channels)
+                  print("link", link)
+                  print("")
 
-    soup.find_all("div", {"class" : "details"})
-    upcoming_games = soup.find_all("h3")
+               #create a dict of the game with all the values
+               game = {
+                  "home": home,
+                  "away": away,
+                  "timestamp": timestamp,
+                  "channels": channels,
+                  "link": link
+               }
 
-    games = []
+               games.append(game)    
+         except:
+            print("error", traceback.print_exc())
+            continue #go to next element in the array
 
-    for upcoming_game in upcoming_games:
-        if any(x in upcoming_game.text.encode('utf-8') for x in TEAMS_TO_SEARCH_FOR):
-            #reset variables
-            game = []
+          
+   if(DEBUG):
+      print("games", games)
 
-            tmp_teams = upcoming_game.text.encode('utf-8').split("\xe2\x80\x93")
+   return games
 
-            game.append(tmp_teams[0].strip()) #add team 1
-            if(DEBUG): print game[0]
-            game.append(tmp_teams[1].strip()) #add team 2
-            if(DEBUG): print game[1]
-            date = get_date(upcoming_game.parent.parent)
-            game.append(date)
-            if(DEBUG): print game[2]
-            channels = get_channels(upcoming_game.parent);
-            game.append(channels)
-            if(DEBUG):
-                print game[3]
-                print "\n"
-            games.append(game)
-
-    return games
-
-    """if(DEBUG):
-        if games:
-            for game in games:
-                print game
-                #print  game[2] + ": " + game[0] + " - " + game[1] + "\n" + game[3] + "\n"
 """
-
-def save_to_db(games, SPORT, DEBUG = False):
-
-    client = MongoClient('localhost', 27017)
-    db = client['upcoming']
-    collection = db[SPORT]
-
-    for game in games:
-        m = hashlib.md5()
-        #print "".join(str(element) for element in game)
-        m.update(" ".join(str(element) for element in game))
-        post = {"type": SPORT,
-                "team1"     : game[0],
-                "team2"     : game[1],
-                "date"      : game[2],
-                "channels"  : game[3],
-                "_id"       : m.hexdigest()
-                }
-
-        if(DEBUG):
-            print "inserted into database:"
-            print post
-        try:
-            collection.insert_one(post) #insert_one ?
-        except:
-            if(DEBUG): print "already existing in db"
-
 def remove_database(SPORT):
     client = MongoClient('localhost', 27017)
     db = client['upcoming']
@@ -148,12 +118,22 @@ def show_all_database(SPORT):
     collection = db[SPORT]
     cursor = collection.find()
     for document in cursor:
-        print(document)
-
-
+        print (document)
+"""
+"""
 def football_games(DEBUG = False):
-    games = tvmatchen("http://www.tvmatchen.nu/fotboll/", ["Real Madrid", "Malmö FF", "Paris Saint Germain", "Manchester United", "Chelsea", "Arsenal", "Manchester City"], DEBUG)
-    save_to_db(games, "football", DEBUG)
+   #html = getTvmatchen("http://www.tvmatchen.nu/fotboll/", DEBUG)
+   html = testTvmatchenData(DEBUG)
+
+   #these are the teams we are searching for
+   teams = ["Real Madrid", "Malmö FF", "Paris Saint Germain", "Manchester United"]
+   teams = [x.lower().encode('utf-8') for x in teams] #convert to lowercase and encode to utf8 to handle åäö characters
+
+   print(teams)
+
+   parseTvmatchen(html, teams , DEBUG)
+
+   #save_to_db(games, "football", DEBUG)
 
 def nba_games(DEBUG = False):
     games = tvmatchen("http://www.tvmatchen.nu/basket/nba/", ["Boston Celtics", "Golden State Warriors", "Cleveland Cavaliers"], DEBUG)
@@ -169,59 +149,51 @@ def run_all(DEBUG = False):
     football_games(DEBUG)
     nba_games(DEBUG)
     cs_games(DEBUG)
+"""
 
-def nba(DEBUG = True):
-    req = urllib2.Request("http://www.nba.com/celtics/schedule")
-    req.add_header('User-Agent', 'Mozilla/5.0')
+def generateHash(game):
+   hash = hashlib.md5()
+   #generate a unique id generated by the information about game
+   tmp = " ".join(str(value) for key, value in game.items())
+   tmp = tmp.encode("utf-8") #remember to encode to utf8 otherwise hash.update will throw error on unicode chars
+   hash.update(tmp)
+   game["_id"] = hash.hexdigest()
+   return game
 
-    response = urllib2.urlopen(req)
-    the_page = response.read()
+def saveToDatabaseTvMatchen(games, DEBUG = False):
+   client = MongoClient("localhost", 27017)
+   db = client["events"]
+   collection = db["football"]
+   
+   games = map(generateHash, games)
+   games = list(games)
 
-    soup = BeautifulSoup(the_page, "html5lib")
-    tmp_games = soup.find_all("li", {"class": "event"})
+   print("games", games)
+      
+     
+   try:
+      collection.delete_many({}) #first delete everything so we don't have any old information
+      collection.insert_many(games) #then insert everything
+      if(DEBUG):
+         print ("successfully inserted into database:")
+   except:
+      if(DEBUG): 
+         print("error", traceback.print_exc())
+   
+   #print("games", games)
 
-    games = list();
+def tvMatchen(DEBUG = False):
+   #html = getTvmatchen("http://www.tvmatchen.nu/fotboll/", DEBUG)
+   html = testTvmatchenData(DEBUG)
 
-    for tmp_game in tmp_games:
-        game = {}
-        game['time'] = tmp_game.get("data-eventtime")
-        game['arena'] = tmp_game.get("data-arena")
-        game['info'] = tmp_game.find("div", {"class": "etowah-schedule__event__opponent-logo"}).find("span", {"class": "element-invisible"}).text
-        game['home_team'] = "Boston Celtics"
-        game['away_team'] = tmp_game.find("div", {"class": "etowah-schedule__event__opponent-logo"}).find("img", {"class": "logo"}).get("alt")
+   #these are the teams we are searching for
+   teams = ["Real Madrid", "Malmö FF", "Paris Saint Germain", "Manchester United"]
+   teams = [x.lower().encode('utf-8') for x in teams] #convert to lowercase and encode to utf8 to handle åäö characters
 
-        #if(re.match("(?:Game between the )(. *)(?: and the )([\w\s] * )(?: on)", game['info']) is not None):
-           # print "heeej"
-        games.append(game)
-
-    return games
-
-def nba_save_to_db(games, DEBUG = False):
-
-    client = MongoClient('localhost', 27017)
-    db = client['upcoming']
-    collection = db["nba2"]
-
-    for game in games:
-        m = hashlib.md5()
-        #print "".join(str(element) for element in game)
-        m.update(" ".join(str(element) for element in game))
-        post = {"type": "nba2",
-                "date"     : game['time'],
-                "arena"    : game['arena'],
-                "info"     : game['info'],
-                "home_team": game['home_team'],
-                "away_team": game['away_team'],
-                "_id"      : m.hexdigest()
-                }
-
-        try:
-            collection.insert_one(post) #insert_one ?
-        except:
-            if(DEBUG): print "already existing in db " + post['_id']
-
-
-
+   games = parseTvmatchen(html, teams, DEBUG)
+   saveToDatabaseTvMatchen(games, DEBUG)
+   #print("games", games)
+   #saveTvMatchen(games, "football", DEBUG)
 
 
 if __name__ == "__main__":
@@ -231,4 +203,5 @@ if __name__ == "__main__":
     #nba_games(True)
     #run_all(True)
 
-    nba(True)
+    tvMatchen(True)
+
