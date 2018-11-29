@@ -54,7 +54,9 @@ def parseTvmatchen(html, TEAMS_TO_SEARCH_FOR, DEBUG = False):
 
             #we search in lowercase if the teams we are searching are playing, if not then ignore
             if any(x in teams.lower() for x in TEAMS_TO_SEARCH_FOR):
-               [home, away] = teams.split(b"\xc3\xa2\xe2\x82\xac\xe2\x80\x9c") #split on " - " in unicode ascii
+               #[home, away] = teams.split(b"\xc3\xa2\xe2\x82\xac\xe2\x80\x9c") #split on " - " in unicode ascii, this is in ubuntu bash on windows
+               [home, away] = teams.split(b"\xe2\x80\x93") #split on " - " in unicode ascii
+               
                home = home.decode("utf-8").strip() #decode the name of the home team and strip whitespace
                away = away.decode("utf-8").strip() #decode the name of the away team and strip whitespace
 
@@ -192,8 +194,6 @@ def tvMatchen(DEBUG = False):
 
    games = parseTvmatchen(html, teams, DEBUG)
    saveToDatabaseTvMatchen(games, DEBUG)
-   #print("games", games)
-   #saveTvMatchen(games, "football", DEBUG)
 
 
 if __name__ == "__main__":
@@ -203,5 +203,5 @@ if __name__ == "__main__":
     #nba_games(True)
     #run_all(True)
 
-    tvMatchen(True)
+    tvMatchen(False)
 
